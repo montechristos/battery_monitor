@@ -1,1 +1,1208 @@
-Hi
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horex Battery Monitor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aes-js/3.1.2/index.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+    
+    :root {
+      --bg-color: #0a0e14;
+      --text-color: #00ff88;
+      --panel-bg: #121820;
+      --gauge-bg: #1a2332;
+      --activity-color: #00ff88;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Rajdhani', monospace;
+      background: linear-gradient(135deg, #0a0e14 0%, #1a1f2e 100%);
+      color: var(--text-color);
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
+      max-width: 500px;
+      width: 100%;
+    }
+    
+    h2 {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 2rem;
+      margin-bottom: 30px;
+      text-align: center;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+      position: relative;
+    }
+    
+    /* Tab Navigation */
+    .tab-nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      background: var(--panel-bg);
+      padding: 8px;
+      border-radius: 8px;
+      border: 2px solid #2a3342;
+    }
+    
+    .tab-button {
+      flex: 1;
+      padding: 12px 20px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Orbitron', monospace;
+      cursor: pointer;
+      background: transparent;
+      color: #8899aa;
+      border: none;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .tab-button:hover {
+      color: var(--text-color);
+      background: rgba(0, 255, 136, 0.1);
+    }
+    
+    .tab-button.active {
+      background: linear-gradient(135deg, #1a2332 0%, #2a3342 100%);
+      color: var(--text-color);
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .ble-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--activity-color);
+      box-shadow: 0 0 10px var(--activity-color);
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+      margin: -20px auto 20px 0;
+    }
+    
+    .ble-indicator.active {
+      opacity: 1;
+      animation: pulse 0.5s ease-out;
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 10px var(--activity-color);
+      }
+      50% {
+        transform: scale(1.3);
+        box-shadow: 0 0 20px var(--activity-color);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 10px var(--activity-color);
+      }
+    }
+    
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    
+    button {
+      flex: 1;
+      padding: 16px 24px;
+      font-size: 18px;
+      font-weight: 700;
+      font-family: 'Orbitron', monospace;
+      cursor: pointer;
+      background: linear-gradient(135deg, #1a2332 0%, #2a3342 100%);
+      color: var(--text-color);
+      border: 2px solid var(--text-color);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+    }
+    
+    button:hover {
+      background: linear-gradient(135deg, #2a3342 0%, #3a4352 100%);
+      box-shadow: 0 6px 30px rgba(0, 255, 136, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: translateY(0);
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 15px;
+      background: var(--panel-bg);
+      border-radius: 8px;
+      border: 2px solid #2a3342;
+    }
+    
+    .toggle-label {
+      font-family: 'Rajdhani', monospace;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #8899aa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 26px;
+      background: #2a3342;
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.3s;
+      border: 2px solid #3a4352;
+    }
+    
+    .toggle-switch.active {
+      background: var(--text-color);
+      border-color: var(--text-color);
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(24px);
+    }
+    
+    .monitor-panel {
+      background: var(--panel-bg);
+      padding: 30px;
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 2px solid #2a3342;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+    
+    .gauge-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    
+    .color-bar {
+      display: flex;
+      flex-direction: column;
+      width: 30px;
+      height: 240px;
+      border-radius: 15px;
+      overflow: visible;
+      border: 2px solid #2a3342;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+    
+    .color-bar-segment {
+      flex: 1;
+      position: relative;
+      transition: opacity 0.3s ease;
+    }
+    
+    .color-bar-indicator {
+      position: absolute;
+      left: -18px;
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 15px solid var(--text-color);
+      transition: top 0.5s ease;
+      filter: drop-shadow(2px 0 6px rgba(0, 255, 136, 0.8));
+      z-index: 10;
+      transform: translateY(-10px);
+    }
+    
+    .gauge {
+      position: relative;
+      width: 240px;
+      height: 240px;
+    }
+    
+    .gauge svg {
+      transform: rotate(-90deg);
+      filter: drop-shadow(0 0 10px currentColor);
+    }
+    
+    .gauge-bg {
+      fill: none;
+      stroke: var(--gauge-bg);
+      stroke-width: 20;
+    }
+    
+    .gauge-progress {
+      fill: none;
+      stroke: var(--gauge-color, #00ff88);
+      stroke-width: 20;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease;
+    }
+    
+    .gauge-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    
+    .gauge-percentage {
+      font-family: 'Orbitron', monospace;
+      font-size: 3rem;
+      font-weight: 900;
+      color: var(--gauge-color, #00ff88);
+      line-height: 1;
+      text-shadow: 0 0 20px currentColor;
+    }
+    
+    .gauge-label {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #8899aa;
+      margin-top: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    
+    .readings {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .reading {
+      background: var(--gauge-bg);
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #2a3342;
+    }
+    
+    .reading-label {
+      font-size: 0.85rem;
+      color: #8899aa;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 500;
+    }
+    
+    .reading-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-color);
+      text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+    
+    .reading-unit {
+      font-size: 1.2rem;
+      margin-left: 4px;
+      opacity: 0.7;
+    }
+    
+    .status-text {
+      font-family: 'Rajdhani', monospace;
+      text-align: center;
+      color: #8899aa;
+      font-size: 1.1rem;
+      padding: 20px;
+      letter-spacing: 1px;
+    }
+    
+    .sim-badge {
+      display: inline-block;
+      background: #ff9900;
+      color: #000;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-left: 10px;
+      letter-spacing: 1px;
+    }
+    
+    /* Cranking Tab Styles */
+    .cranking-display {
+      text-align: center;
+    }
+    
+    .cranking-main {
+      background: var(--gauge-bg);
+      padding: 40px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      border: 2px solid #2a3342;
+    }
+    
+    .cranking-voltage-large {
+      font-family: 'Orbitron', monospace;
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--text-color);
+      text-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+      margin-bottom: 10px;
+    }
+    
+    .cranking-label {
+      font-size: 1rem;
+      color: #8899aa;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .cranking-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .cranking-stat {
+      background: var(--gauge-bg);
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #2a3342;
+    }
+    
+    .cranking-stat-label {
+      font-size: 0.85rem;
+      color: #8899aa;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .cranking-stat-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-color);
+      text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    }
+    
+    .cranking-history {
+      margin-top: 30px;
+    }
+    
+    .cranking-history-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.2rem;
+      color: var(--text-color);
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .cranking-history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .cranking-history-item {
+      background: var(--gauge-bg);
+      padding: 15px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #2a3342;
+    }
+    
+    .cranking-history-voltage {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-color);
+    }
+    
+    .cranking-history-time {
+      font-size: 0.85rem;
+      color: #8899aa;
+    }
+    
+    /* Voltage-based color classes */
+    .color-dark-green { --gauge-color: #006633; }
+    .color-green { --gauge-color: #00aa44; }
+    .color-light-green { --gauge-color: #44dd77; }
+    .color-yellow-green { --gauge-color: #88dd44; }
+    .color-yellow { --gauge-color: #ffcc00; }
+    .color-orange { --gauge-color: #ff9900; }
+    .color-orange-red { --gauge-color: #ff6633; }
+    .color-red { --gauge-color: #ff3333; }
+    .color-dark-red { --gauge-color: #cc0000; }
+    
+    /* Voltage History Chart */
+    .voltage-history {
+      margin-top: 30px;
+      background: var(--gauge-bg);
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #2a3342;
+    }
+    
+    .voltage-history-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 1rem;
+      color: var(--text-color);
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+    
+    .voltage-chart {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      height: 120px;
+      gap: 2px;
+      padding: 10px;
+      background: #0a0e14;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    
+    .voltage-bar {
+      flex: 1;
+      min-width: 4px;
+      max-width: 8px;
+      background: var(--bar-color);
+      border-radius: 2px 2px 0 0;
+      transition: height 0.3s ease, background 0.3s ease;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .voltage-bar:hover {
+      opacity: 0.8;
+    }
+    
+    .voltage-bar-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: var(--text-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      margin-bottom: 5px;
+      z-index: 100;
+    }
+    
+    .voltage-bar:hover .voltage-bar-tooltip {
+      opacity: 1;
+    }
+    
+    .chart-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: #8899aa;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>
+    <img src="Horex_logo.png" alt="Horex" style="max-width: 300px; height: auto; filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.6)) drop-shadow(0 0 40px rgba(0, 255, 136, 0.3));">
+  </h2>
+  
+  <div class="controls">
+    <button id="connectBtn">Connect Device</button>
+  </div>
+  
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-button active" onclick="switchTab('main')">Main</button>
+    <button class="tab-button" onclick="switchTab('cranking')">Cranking</button>
+  </div>
+  
+  <div class="monitor-panel">
+    <!-- Main Tab -->
+    <div id="mainTab" class="tab-content active">
+      <div id="gaugeView" style="display: none;">
+        <div class="gauge-container">
+          <div class="color-bar">
+            <div class="color-bar-segment" style="background: #006633;"></div>
+            <div class="color-bar-segment" style="background: #00aa44;"></div>
+            <div class="color-bar-segment" style="background: #00aa44;"></div>
+            <div class="color-bar-segment" style="background: #44dd77;"></div>
+            <div class="color-bar-segment" style="background: #88dd44;"></div>
+            <div class="color-bar-segment" style="background: #ffcc00;"></div>
+            <div class="color-bar-segment" style="background: #ffcc00;"></div>
+            <div class="color-bar-segment" style="background: #ff9900;"></div>
+            <div class="color-bar-segment" style="background: #ff6633;"></div>
+            <div class="color-bar-segment" style="background: #ff3333;"></div>
+            <div class="color-bar-segment" style="background: #cc0000;"></div>
+            <div class="color-bar-indicator" id="colorBarIndicator"></div>
+          </div>
+          
+          <div class="gauge" id="gauge">
+            <svg width="240" height="240" viewBox="0 0 240 240">
+              <circle class="gauge-bg" cx="120" cy="120" r="102"></circle>
+              <circle class="gauge-progress" id="gaugeProgress" cx="120" cy="120" r="102" 
+                      stroke-dasharray="640.88" stroke-dashoffset="640.88"></circle>
+            </svg>
+            <div class="gauge-center">
+              <div class="gauge-percentage" id="gaugePercentage">0%</div>
+              <div class="gauge-label">State of Charge<span id="simBadge" style="display: none;" class="sim-badge">SIM</span></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="ble-indicator" id="bleIndicator"></div>
+        
+        <div class="readings">
+          <div class="reading">
+            <div class="reading-label">Voltage</div>
+            <div class="reading-value" id="voltageValue">
+              --<span class="reading-unit">V</span>
+            </div>
+          </div>
+          <div class="reading">
+            <div class="reading-label">Temperature</div>
+            <div class="reading-value" id="temperatureValue">
+              --<span class="reading-unit">°C</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="voltage-history">
+          <div class="voltage-history-title">Voltage History</div>
+          <div class="voltage-chart" id="voltageChart"></div>
+          <div class="chart-labels">
+            <span>Oldest</span>
+            <span>Latest</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="statusView">
+        <div class="status-text">Status: Disconnected</div>
+      </div>
+    </div>
+    
+    <!-- Cranking Tab -->
+    <div id="crankingTab" class="tab-content">
+      <div class="cranking-display">
+        <div class="cranking-main">
+          <div class="cranking-voltage-large" id="crankingVoltageLarge">--</div>
+          <div class="cranking-label">Minimum Cranking Voltage</div>
+        </div>
+        
+        <div class="cranking-stats">
+          <div class="cranking-stat">
+            <div class="cranking-stat-label">Current Voltage</div>
+            <div class="cranking-stat-value" id="crankingCurrentVoltage">
+              --<span class="reading-unit">V</span>
+            </div>
+          </div>
+          <div class="cranking-stat">
+            <div class="cranking-stat-label">Crank Events</div>
+            <div class="cranking-stat-value" id="crankingEventCount">0</div>
+          </div>
+        </div>
+        
+        <div class="cranking-history">
+          <div class="cranking-history-title">Recent Cranking Events</div>
+          <div class="cranking-history-list" id="crankingHistoryList">
+            <div class="status-text" style="padding: 40px;">No cranking events recorded yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * BM6 / BM2 Battery Monitor Web Bluetooth
+ * Protocol: AES-CBC encrypted 16-byte frames.
+ */
+
+/* --- Configuration --- */
+const CONFIG = {
+  serviceUUID: '0000fff0-0000-1000-8000-00805f9b34fb',
+  writeUUID:   '0000fff3-0000-1000-8000-00805f9b34fb',
+  notifyUUID:  '0000fff4-0000-1000-8000-00805f9b34fb',
+  // Key: "leagend\xff\xfe0100009"
+  aesKey:      [108, 101, 97, 103, 101, 110, 100, 255, 254, 48, 49, 48, 48, 48, 48, 57],
+  zeroIV:      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] 
+};
+
+
+/* --- Simulation State --- */
+/* Simulation mode allows testing the UI without a real device. It generates random voltage, SoC, and temperature values that fluctuate over time. This is useful for development and demonstration purposes when a physical BM6 device is not available.
+*/
+let simulationMode = true;
+let simulationInterval = null;
+let simVoltage = 12.6;
+let simSoC = 90;
+let simTemp = 22;
+let simDirection = -1; // -1 for discharge, 1 for charge
+
+/* --- Connection State --- */
+let isConnected = false;
+
+/* --- Cranking State --- */
+let crankingMinVoltage = null;
+let crankingEvents = [];
+let lastVoltage = null;
+let isCranking = false;
+let crankingStartVoltage = null;
+const CRANKING_THRESHOLD = 11.5; // Voltage below this is considered cranking
+const RECOVERY_THRESHOLD = 12.0; // Voltage above this after cranking is considered recovery
+
+/* --- Voltage History --- */
+let voltageHistory = [];
+const MAX_HISTORY = 500; // Keep last 50 readings
+let isViewingLatest = true; // Track if user is viewing latest data or historical
+
+/* --- Tab Management --- */
+function switchTab(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Remove active from all buttons
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected tab
+  if (tabName === 'main') {
+    document.getElementById('mainTab').classList.add('active');
+    document.querySelector('.tab-button:nth-child(1)').classList.add('active');
+  } else if (tabName === 'cranking') {
+    document.getElementById('crankingTab').classList.add('active');
+    document.querySelector('.tab-button:nth-child(2)').classList.add('active');
+    updateCrankingDisplay();
+  }
+}
+
+/* --- UI Helpers --- */
+const statusView = document.getElementById('statusView');
+const gaugeView = document.getElementById('gaugeView');
+const bleIndicator = document.getElementById('bleIndicator');
+const simBadge = document.getElementById('simBadge');
+
+const showStatus = (msg) => {
+  statusView.innerHTML = `<div class="status-text">${msg}</div>`;
+  statusView.style.display = 'block';
+  gaugeView.style.display = 'none';
+};
+
+const showGauge = () => {
+  statusView.style.display = 'none';
+  gaugeView.style.display = 'block';
+};
+
+const flashBleIndicator = () => {
+  bleIndicator.classList.add('active');
+  setTimeout(() => {
+    bleIndicator.classList.remove('active');
+  }, 500);
+};
+
+const getVoltageColor = (voltage) => {
+  if (voltage >= 12.70) return 'dark-green';
+  if (voltage >= 12.60) return 'green';
+  if (voltage >= 12.50) return 'green';
+  if (voltage >= 12.40) return 'light-green';
+  if (voltage >= 12.30) return 'yellow-green';
+  if (voltage >= 12.20) return 'yellow';
+  if (voltage >= 12.10) return 'yellow';
+  if (voltage >= 12.00) return 'orange';
+  if (voltage >= 11.90) return 'orange-red';
+  if (voltage >= 11.80) return 'red';
+  return 'dark-red';
+};
+
+const getVoltageColorHex = (voltage) => {
+  if (voltage >= 12.70) return '#006633';
+  if (voltage >= 12.60) return '#00aa44';
+  if (voltage >= 12.50) return '#00aa44';
+  if (voltage >= 12.40) return '#44dd77';
+  if (voltage >= 12.30) return '#88dd44';
+  if (voltage >= 12.20) return '#ffcc00';
+  if (voltage >= 12.10) return '#ffcc00';
+  if (voltage >= 12.00) return '#ff9900';
+  if (voltage >= 11.90) return '#ff6633';
+  if (voltage >= 11.80) return '#ff3333';
+  return '#cc0000';
+};
+
+const updateVoltageChart = () => {
+  const chart = document.getElementById('voltageChart');
+  if (!chart) return;
+  
+  // Calculate how far from the RIGHT edge the user is viewing (before clearing)
+  const scrollFromRight = chart.scrollWidth - chart.scrollLeft - chart.clientWidth;
+  
+  // Clear existing bars
+  chart.innerHTML = '';
+  
+  // Find min and max voltage for scaling
+  const voltages = voltageHistory.map(h => h.voltage);
+  const minV = Math.min(...voltages, 10.5);
+  const maxV = Math.max(...voltages, 13.5);
+  const range = maxV - minV;
+  
+  // Create bars
+  voltageHistory.forEach((entry, index) => {
+    const bar = document.createElement('div');
+    bar.className = 'voltage-bar';
+    
+    // Calculate height as percentage
+    const heightPercent = range > 0 ? ((entry.voltage - minV) / range) * 100 : 50;
+    bar.style.height = `${heightPercent}%`;
+    bar.style.setProperty('--bar-color', getVoltageColorHex(entry.voltage));
+    
+    // Add tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'voltage-bar-tooltip';
+    const time = entry.timestamp.toLocaleTimeString();
+    tooltip.textContent = `${entry.voltage.toFixed(2)}V @ ${time}`;
+    bar.appendChild(tooltip);
+    
+    chart.appendChild(bar);
+  });
+  
+  // Add scroll listener if not already added
+  if (!chart.hasScrollListener) {
+    chart.addEventListener('scroll', () => {
+      // Check if user is at the right edge (within 10px tolerance)
+      const isAtEnd = chart.scrollLeft >= (chart.scrollWidth - chart.clientWidth - 10);
+      isViewingLatest = isAtEnd;
+    });
+    chart.hasScrollListener = true;
+  }
+  
+  // Decide scroll behavior
+  if (isViewingLatest) {
+    // User wants to see latest data - scroll to end
+    chart.scrollLeft = chart.scrollWidth;
+  } else {
+    // User is viewing historical data - maintain the same distance from the right edge
+    // This keeps them viewing the same historical bars even as new bars are added
+    chart.scrollLeft = chart.scrollWidth - scrollFromRight - chart.clientWidth;
+  }
+};
+
+const getColorBarSegmentIndex = (voltage) => {
+  // Map voltage to segment index (0 = top/dark-green, 10 = bottom/dark-red)
+  // Each segment represents a voltage range matching the gauge color logic
+  if (voltage >= 12.70) return 0;  // dark-green
+  if (voltage >= 12.60) return 1;  // green
+  if (voltage >= 12.50) return 2;  // green
+  if (voltage >= 12.40) return 3;  // light-green
+  if (voltage >= 12.30) return 4;  // yellow-green
+  if (voltage >= 12.20) return 5;  // yellow
+  if (voltage >= 12.10) return 6;  // yellow
+  if (voltage >= 12.00) return 7;  // orange
+  if (voltage >= 11.90) return 8;  // orange-red
+  if (voltage >= 11.80) return 9;  // red
+  return 10;  // dark-red
+};
+
+const updateColorBarIndicator = (voltage) => {
+  const indicator = document.getElementById('colorBarIndicator');
+  if (!indicator) return;
+  
+  const segmentIndex = getColorBarSegmentIndex(voltage);
+  
+  // Calculate position: 11 segments, each is 240px / 11 ≈ 21.82px
+  const segmentHeight = 240 / 11;
+  // Position at center of the segment
+  const topPosition = (segmentIndex * segmentHeight) + (segmentHeight / 2);
+  
+  indicator.style.top = `${topPosition}px`;
+};
+
+/* --- Cranking Detection and Display --- */
+const detectCranking = (voltage) => {
+  // Detect cranking event: voltage drops below threshold and then recovers
+  if (lastVoltage !== null) {
+    // Start of cranking event
+    if (!isCranking && voltage < CRANKING_THRESHOLD && lastVoltage >= CRANKING_THRESHOLD) {
+      isCranking = true;
+      crankingStartVoltage = voltage;
+      console.log('Cranking event started at', voltage, 'V');
+    }
+    
+    // During cranking, track minimum
+    if (isCranking && voltage < (crankingStartVoltage || voltage)) {
+      crankingStartVoltage = voltage;
+    }
+    
+    // End of cranking event (recovery)
+    if (isCranking && voltage > RECOVERY_THRESHOLD && lastVoltage <= RECOVERY_THRESHOLD) {
+      isCranking = false;
+      const minVoltage = crankingStartVoltage;
+      
+      // Update overall minimum
+      if (crankingMinVoltage === null || minVoltage < crankingMinVoltage) {
+        crankingMinVoltage = minVoltage;
+      }
+      
+      // Record event
+      const event = {
+        voltage: minVoltage,
+        timestamp: new Date(),
+        recoveryVoltage: voltage
+      };
+      crankingEvents.unshift(event);
+      
+      // Keep only last 10 events
+      if (crankingEvents.length > 10) {
+        crankingEvents = crankingEvents.slice(0, 10);
+      }
+      
+      console.log('Cranking event ended. Min:', minVoltage, 'V, Recovery:', voltage, 'V');
+      updateCrankingDisplay();
+    }
+  }
+  
+  lastVoltage = voltage;
+};
+
+const updateCrankingDisplay = () => {
+  // Update minimum cranking voltage
+  const crankingVoltageLarge = document.getElementById('crankingVoltageLarge');
+  if (crankingMinVoltage !== null) {
+    crankingVoltageLarge.textContent = crankingMinVoltage.toFixed(2) + 'V';
+  } else {
+    crankingVoltageLarge.textContent = '--';
+  }
+  
+  // Update current voltage
+  const crankingCurrentVoltage = document.getElementById('crankingCurrentVoltage');
+  if (lastVoltage !== null) {
+    crankingCurrentVoltage.innerHTML = `${lastVoltage.toFixed(2)}<span class="reading-unit">V</span>`;
+  } else {
+    crankingCurrentVoltage.innerHTML = `--<span class="reading-unit">V</span>`;
+  }
+  
+  // Update event count
+  document.getElementById('crankingEventCount').textContent = crankingEvents.length;
+  
+  // Update history list
+  const historyList = document.getElementById('crankingHistoryList');
+  if (crankingEvents.length === 0) {
+    historyList.innerHTML = '<div class="status-text" style="padding: 40px;">No cranking events recorded yet</div>';
+  } else {
+    historyList.innerHTML = crankingEvents.map(event => {
+      const timeStr = event.timestamp.toLocaleTimeString();
+      return `
+        <div class="cranking-history-item">
+          <div>
+            <div class="cranking-history-voltage">${event.voltage.toFixed(2)}V</div>
+            <div class="cranking-history-time">${timeStr}</div>
+          </div>
+          <div class="cranking-history-time">→ ${event.recoveryVoltage.toFixed(2)}V</div>
+        </div>
+      `;
+    }).join('');
+  }
+};
+
+const updateDisplay = (voltage, temperature, soc) => {
+  showGauge();
+  
+  // Add to voltage history
+  voltageHistory.push({
+    voltage: voltage,
+    timestamp: new Date()
+  });
+  
+  // Keep only last MAX_HISTORY readings
+  if (voltageHistory.length > MAX_HISTORY) {
+    voltageHistory.shift();
+  }
+  
+  // Update voltage chart
+  updateVoltageChart();
+  
+  // Detect cranking
+  detectCranking(voltage);
+  
+  // Update gauge
+  const gauge = document.getElementById('gauge');
+  const gaugeProgress = document.getElementById('gaugeProgress');
+  const gaugePercentage = document.getElementById('gaugePercentage');
+  
+  const colorClass = getVoltageColor(voltage);
+  gauge.className = 'gauge color-' + colorClass;
+  
+  const circumference = 640.88;
+  const offset = circumference - (soc / 100) * circumference;
+  gaugeProgress.style.strokeDashoffset = offset;
+  
+  gaugePercentage.textContent = soc + '%';
+  
+  // Update color bar indicator
+  updateColorBarIndicator(voltage);
+  
+  // Update readings
+  document.getElementById('voltageValue').innerHTML = 
+    `${voltage.toFixed(2)}<span class="reading-unit">V</span>`;
+  document.getElementById('temperatureValue').innerHTML = 
+    `${temperature}<span class="reading-unit">°C</span>`;
+  
+  // Update cranking tab current voltage in real-time
+  const crankingCurrentVoltage = document.getElementById('crankingCurrentVoltage');
+  if (crankingCurrentVoltage) {
+    crankingCurrentVoltage.innerHTML = `${voltage.toFixed(2)}<span class="reading-unit">V</span>`;
+  }
+  
+  // Flash BLE indicator
+  flashBleIndicator();
+};
+
+const hex = (buffer) => {
+  return [...new Uint8Array(buffer)]
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+/* --- Crypto Helpers (Using aes-js) --- */
+// We use aes-js because Web Crypto API forces PKCS#7 padding, 
+// but BM6 uses raw 16-byte blocks (NoPadding).
+const cryptoUtils = {
+  encrypt: (dataBytes) => {
+    // Mode CBC, No Padding (Raw)
+    const aesCbc = new aesjs.ModeOfOperation.cbc(CONFIG.aesKey, CONFIG.zeroIV);
+    return aesCbc.encrypt(dataBytes);
+  },
+
+  decrypt: (dataBytes) => {
+    const aesCbc = new aesjs.ModeOfOperation.cbc(CONFIG.aesKey, CONFIG.zeroIV);
+    return aesCbc.decrypt(dataBytes);
+  }
+};
+
+
+/* --- Simulation Mode --- */
+const startSimulation = () => {
+  simBadge.style.display = 'inline-block';
+  showStatus('Simulation Mode: Generating data...');
+  isConnected = true;
+  document.getElementById('connectBtn').style.display = 'none';
+  
+  setTimeout(() => {
+    simulationInterval = setInterval(() => {
+      // Simulate battery discharge/charge
+      simVoltage += simDirection * (Math.random() * 0.02 + 0.01);
+      simSoC += simDirection * (Math.random() * 1 + 0.5);
+      simTemp += (Math.random() - 0.5) * 0.5;
+      
+      // Occasionally simulate cranking event
+      if (Math.random() < 0.01) { // 1% chance per update
+        simVoltage = 10.5 + Math.random() * 0.5; // Drop to cranking voltage
+      }
+      
+      // Clamp values
+      simVoltage = Math.max(10.5, Math.min(13.0, simVoltage));
+      simSoC = Math.max(0, Math.min(100, simSoC));
+      simTemp = Math.max(15, Math.min(35, simTemp));
+      
+      // Reverse direction at limits
+      if (simSoC <= 5) simDirection = 1;
+      if (simSoC >= 95) simDirection = -1;
+      
+      updateDisplay(simVoltage, Math.round(simTemp), Math.round(simSoC));
+    }, 500);
+  }, 500);
+};
+
+const stopSimulation = () => {
+  simBadge.style.display = 'none';
+  if (simulationInterval) {
+    clearInterval(simulationInterval);
+    simulationInterval = null;
+  }
+  isConnected = false;
+  document.getElementById('connectBtn').style.display = 'flex';
+  showStatus('Status: Disconnected');
+};
+
+
+/* --- Main Logic --- */
+document.getElementById('connectBtn').onclick = async () => {
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true;
+  
+  // Handle Simulation Mode
+  if (simulationMode) {
+    startSimulation();
+    btn.disabled = false;
+    return;
+  }
+  
+  // Handle Real BLE Connection (EXACT CODE FROM WORKING VERSION)
+  try {
+    showStatus('Scanning for BM6 device...');
+    
+    // 1. Connect
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'BM6' }],
+      optionalServices: [CONFIG.serviceUUID]
+    });
+
+    device.addEventListener('gattserverdisconnected', () => {
+      isConnected = false;
+      document.getElementById('connectBtn').style.display = 'flex';
+      showStatus('Status: Disconnected');
+      btn.disabled = false;
+    });
+
+    showStatus('Connecting to GATT Server...');
+    const server = await device.gatt.connect();
+
+    // 2. Get Characteristics
+    const service = await server.getPrimaryService(CONFIG.serviceUUID);
+    const writeChar = await service.getCharacteristic(CONFIG.writeUUID);
+    const notifyChar = await service.getCharacteristic(CONFIG.notifyUUID);
+
+    // 3. Setup Notifications BEFORE sending command
+    showStatus('Subscribing to notifications...');
+    rxBuffer = []; 
+    await notifyChar.startNotifications();
+    notifyChar.addEventListener('characteristicvaluechanged', handleNotification);
+
+    // 4. Send Command
+    showStatus('Sending initialization command...');
+    
+    // Command: d15507 + padding (16 bytes total)
+    const command = new Uint8Array(16);
+    command.set([0xd1, 0x55, 0x07]); 
+    
+    const encryptedCmd = await cryptoUtils.encrypt(command);
+    
+    // Use writeValueWithResponse (NOT writeValueWithoutResponse)
+    await writeChar.writeValue(encryptedCmd);
+
+    isConnected = true;
+    btn.style.display = 'none';
+    showStatus('Connected. Waiting for reading...');
+
+  } catch (err) {
+    console.error(err);
+    isConnected = false;
+    btn.style.display = 'flex';
+    showStatus(`Error: ${err.message}`);
+    btn.disabled = false;
+  }
+};
+
+/* --- Data Handler (EXACT CODE FROM WORKING VERSION) --- */
+async function handleNotification(event) {
+  const encryptedData = new Uint8Array(event.target.value.buffer);
+  
+  // Should receive 16-byte encrypted frames
+  if (encryptedData.length !== 16) {
+    console.log('Unexpected frame length:', encryptedData.length);
+    return;
+  }
+
+  try {
+    // Decrypt the 16-byte frame
+    const decryptedBuf = await cryptoUtils.decrypt(encryptedData);
+    const hexStr = hex(decryptedBuf);
+    
+    console.log('Decrypted hex:', hexStr);
+
+    // Validate response starts with d15507
+    if (!hexStr.startsWith('d15507')) {
+      console.log('Unexpected message header:', hexStr.slice(0, 6));
+      return;
+    }
+
+    // Parse according to Python code logic:
+    // hexStr[6:8]   - sign byte (01 = negative temp)
+    // hexStr[8:10]  - temperature value
+    // hexStr[12:14] - SoC (state of charge)
+    // hexStr[14:18] - voltage (last 4 hex digits, divide by 100)
+    
+    const signByte = hexStr.slice(6, 8);
+    let temp = parseInt(hexStr.slice(8, 10), 16);
+    if (signByte === '01') {
+      temp = -temp;
+    }
+    
+    const soc = parseInt(hexStr.slice(12, 14), 16);
+    const volt = parseInt(hexStr.slice(14, 18), 16) / 100;
+
+    updateDisplay(volt, temp, soc);
+
+  } catch (err) {
+    console.error('Decryption or parsing failed:', err);
+  }
+}
+</script>
+
+</body>
+</html>
